@@ -1,4 +1,4 @@
-# 🔬 ICR Probe
+<h1 align="center">🔬 ICR Probe</h1>
 
 <p align="center">
   <a href="https://aclanthology.org/2025.acl-long.880/"><img src="https://img.shields.io/badge/ACL-2025-blue.svg" alt="ACL 2025"></a>
@@ -21,25 +21,43 @@ Large language models (LLMs) tend to generate hallucinations that undermine thei
 **1. Compute ICR Scores**
 
 ```python
+import torch
 from src.icr_score import ICRScore
 
+# -----------------------------------------------------------
+# Assume you have already run a forward pass and cached:
+#   • hidden_states: list[output_size+1, layer, batch](seq_len/1, dim)
+#   • attentions:    list[output_size+1, layer, batch](n_head, seq_len, seq_len)
+# -----------------------------------------------------------
+hidden_states = [...] 
+attentions = [...] 
+
+# Initialize ICR Score calculator
 icr_calculator = ICRScore(
-    hidden_states=hidden_states,  # list[output_size+1, layer, batch](seq_len, dim)
-    attentions=attentions,         # list[output_size+1, layer, batch](n_head, seq_len, seq_len)
-    skew_threshold=0,
-    entropy_threshold=1e5,
+    hidden_states=hidden_states,
+    attentions=attentions,
+    # Parameters for Induction Head, but not used in the final version
+    skew_threshold=0,  # Threshold for skewness, set to 0 if not needed
+    entropy_threshold=1e5, # Threshold for entropy, set to 1e5 if not needed
     core_positions={
-        'user_prompt_start': start_position,
-        'user_prompt_end': end_position,
-        'response_start': response_start_position,
+        'user_prompt_start': start_position,  
+        'user_prompt_end': end_position,  
+        'response_start': response_start_position,  
     },
     icr_device='cuda'
 )
 
+# Compute ICR scores with config
 icr_scores, top_p_mean = icr_calculator.compute_icr(
-    top_k=20, top_p=0.1, pooling='mean',
-    attention_uniform=False, hidden_uniform=False, use_induction_head=True
+    top_k=20,
+    top_p=0.1, 
+    pooling='mean',
+    attention_uniform=False,
+    hidden_uniform=False,
+    use_induction_head=True
 )
+
+# ... Save ICR scores ...
 ```
 
 **2. Train ICR Probe**
@@ -49,11 +67,18 @@ icr_scores, top_p_mean = icr_calculator.compute_icr(
 ```python
 from src.icr_probe import ICRProbeTrainer
 from src.config import Config
-
+# -----------------------------------------------------------
+# Assume you have the ICR scores and other necessary data
+#   • train_loader: DataLoader for training data with ICR scores
+#   • val_loader: DataLoader for validation data with ICR scores
+# -----------------------------------------------------------
+train_loader, val_loader = ...  # Load your ICR scores 
+config = Config.from_args()
+    
 trainer = ICRProbeTrainer(
     train_loader=train_loader,
     val_loader=val_loader,
-    config=Config.from_args()
+    config=config,
 )
 trainer.setup_data()
 trainer.setup_model()
